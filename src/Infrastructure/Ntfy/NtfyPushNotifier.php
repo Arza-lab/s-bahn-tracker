@@ -7,10 +7,15 @@ namespace App\Infrastructure\Ntfy;
 use App\Application\Exception\PushFailedException;
 use App\Application\Port\PushNotifierInterface;
 use App\Domain\Model\Notification;
+use App\Infrastructure\Push\SelectablePushNotifier;
+use Symfony\Component\DependencyInjection\Attribute\AsTaggedItem;
+use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
+#[AsTaggedItem(index: 'ntfy')]
+#[AutoconfigureTag(SelectablePushNotifier::TAG)]
 final readonly class NtfyPushNotifier implements PushNotifierInterface
 {
     private const int TIMEOUT_SECONDS = 10;

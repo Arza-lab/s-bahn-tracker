@@ -139,6 +139,19 @@ final class CommutePlannerTest extends TestCase
         self::assertSame(Phase::Done, $decision->state->phase);
     }
 
+    public function testCancellationWhileWalkingListsUpToThreeRunningTrainsAfterTheCancelledOne(): void
+    {
+        $this->startWalking();
+        $board = DepartureFixture::longBoard(DepartureFixture::cancelled('t2', 'S26', '09:51'));
+
+        $notification = $this->onlyNotification($this->decideAt('09:30', $board));
+
+        self::assertSame(
+            'S26 um 09:51 fällt aus. Nächste: S25 um 10:01 (pünktlich), S26 um 10:11 (pünktlich), S25 um 10:21 (pünktlich).',
+            $notification->body,
+        );
+    }
+
     public function testMissingConnectionIsReportedOnceFromTheEarliestLeaveTime(): void
     {
         $board = array_map(

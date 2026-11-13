@@ -16,7 +16,8 @@ use App\Domain\TrainSelector;
  * The real domain object graph, wired by hand.
  *
  * Settings: Europe/Berlin, earliest departure 09:50, 25 min walk, 2 min buffer,
- * plan announced 20 min before leaving, changes below 2 min are ignored.
+ * plan announced 20 min before leaving, changes below 2 min are ignored,
+ * three connections shown unless the constructor says otherwise.
  */
 final readonly class CommuteGraph
 {
@@ -25,11 +26,11 @@ final readonly class CommuteGraph
     public NotificationFactory $notifications;
     public CommutePlanner $planner;
 
-    public function __construct()
+    public function __construct(int $connectionsShown = 3)
     {
-        $this->settings = new CommuteSettings('Europe/Berlin', '09:50', 25, 2, 20, 2);
+        $this->settings = new CommuteSettings('Europe/Berlin', '09:50', 25, 2, 20, 2, $connectionsShown);
         $this->selector = new TrainSelector($this->settings);
-        $this->notifications = new NotificationFactory($this->settings);
+        $this->notifications = new NotificationFactory($this->settings, $this->selector);
         $this->planner = new CommutePlanner([
             new WaitingPhaseHandler($this->selector, $this->notifications, $this->settings),
             new PlannedPhaseHandler($this->selector, $this->notifications, $this->settings),

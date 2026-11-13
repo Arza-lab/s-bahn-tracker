@@ -15,12 +15,13 @@ final readonly class NotificationFactory
 {
     public function __construct(
         private CommuteSettings $settings,
+        private TrainSelector $trainSelector,
     ) {
     }
 
     public function plan(TrackedTrain $train, Situation $situation): Notification
     {
-        return new Notification('Dein Plan', $this->summary($train, $situation));
+        return new Notification('Dein Plan', $this->body($train, $situation));
     }
 
     public function planChanged(TrackedTrain $previous, TrackedTrain $current, Situation $situation): Notification
@@ -30,7 +31,7 @@ final readonly class NotificationFactory
             ? \sprintf('%s um %s fällt aus', $previous->line, $this->clockTime($previous->departureAt))
             : 'Plan geändert';
 
-        return new Notification($title, $this->summary($current, $situation), true);
+        return new Notification($title, $this->body($current, $situation), true);
     }
 
     public function leaveNow(TrackedTrain $train, Situation $situation): Notification
@@ -40,12 +41,15 @@ final readonly class NotificationFactory
         return new Notification('Jetzt losgehen', $body.$this->walkNote($situation->walkConditions), true);
     }
 
-    public function trainCancelled(TrackedTrain $train, ?Departure $alternative): Notification
+    /**
+     * @param list<Departure> $alternatives running trains after the cancelled one
+     */
+    public function trainCancelled(TrackedTrain $train, array $alternatives): Notification
     {
         $body = \sprintf('%s um %s fällt aus.', $train->line, $this->clockTime($train->departureAt));
 
-        if (null !== $alternative) {
-            $body .= \sprintf(' Nächste: %s.', $this->describe($alternative));
+        if ([] !== $alternatives) {
+            $body .= \sprintf(' Nächste: %s.', implode(', ', array_map($this->describe(...), $alternatives)));
         }
 
         return new Notification('Zug fällt aus', $body, true);
@@ -79,19 +83,57 @@ final readonly class NotificationFactory
         );
     }
 
+    private function body(TrackedTrain $train, Situation $situation): string
+    {
+        $lines = [$this->summary($train, $situation)];
+
+        $followers = $this->followers($train, $situation);
+        if ([] !== $followers) {
+            $lines[] = 'Danach:';
+            array_push($lines, ...array_map(fn (TrackedTrain $follower): string => $this->followerLine($follower, $situation), $followers));
+        }
+
+        return implode("\n", $lines);
+    }
+
     private function summary(TrackedTrain $train, Situation $situation): string
     {
-        $departure = $situation->findByTripId($train->tripId);
-        $trainText = null !== $departure
-            ? $this->describe($departure)
-            : \sprintf('%s um %s', $train->line, $this->clockTime($train->departureAt));
-
         return \sprintf(
             '%s. Losgehen um %s.%s',
-            $trainText,
+            $this->trainText($train, $situation),
             $this->clockTime($train->leaveAt),
             $this->walkNote($situation->walkConditions),
         );
+    }
+
+    /**
+     * The reachable trains after the tracked one, so that all shown trains together stay within the limit.
+     *
+     * @return list<TrackedTrain>
+     */
+    private function followers(TrackedTrain $train, Situation $situation): array
+    {
+        $shown = $this->settings->connectionsShown();
+        $followers = array_filter(
+            $this->trainSelector->upcoming($situation, $shown),
+            static fn (TrackedTrain $candidate): bool => $candidate->tripId !== $train->tripId && $candidate->departureAt >= $train->departureAt,
+        );
+
+        return \array_slice(array_values($followers), 0, $shown - 1);
+    }
+
+    private function followerLine(TrackedTrain $follower, Situation $situation): string
+    {
+        return \sprintf('%s, los %s', $this->trainText($follower, $situation), $this->clockTime($follower->leaveAt));
+    }
+
+    private function trainText(TrackedTrain $train, Situation $situation): string
+    {
+        $departure = $situation->findByTripId($train->tripId);
+
+        return null !== $departure
+            ? $this->describe($departure)
+            : \sprintf('%s um %s', $train->line, $this->clockTime($train->departureAt));
     }
 
     private function describe(Departure $departure): string

@@ -6,6 +6,7 @@ namespace App\Tests\Domain;
 
 use App\Domain\Model\Departure;
 use App\Domain\Model\Situation;
+use App\Domain\Model\TrackedTrain;
 use App\Domain\Model\WalkConditions;
 use App\Domain\TrainSelector;
 use App\Tests\Support\CommuteGraph;
@@ -94,6 +95,55 @@ final class TrainSelectorTest extends TestCase
         ];
 
         self::assertNull($this->selector->select($this->situationAt('09:00', $board)));
+    }
+
+    public function testUpcomingReturnsTheFirstTrainsUpToTheLimit(): void
+    {
+        $trains = $this->selector->upcoming($this->situationAt('09:00', DepartureFixture::longBoard()), 3);
+
+        self::assertSame(['t2', 't3', 't4'], $this->tripIds($trains));
+        self::assertSame(['09:24', '09:34', '09:44'], array_map(static fn (TrackedTrain $train): string => $train->leaveAt->format('H:i'), $trains));
+    }
+
+    public function testUpcomingAppliesTheSelectionRules(): void
+    {
+        $board = DepartureFixture::longBoard(DepartureFixture::cancelled('t3', 'S25', '10:01'));
+
+        $trains = $this->selector->upcoming($this->situationAt('09:27', $board), 10);
+
+        self::assertSame(['t4', 't5', 't6'], $this->tripIds($trains));
+    }
+
+    public function testUpcomingReturnsFewerTrainsWhenNotEnoughAreReachable(): void
+    {
+        $trains = $this->selector->upcoming($this->situationAt('09:00', DepartureFixture::morningBoard()), 5);
+
+        self::assertSame(['t2', 't3', 't4'], $this->tripIds($trains));
+    }
+
+    public function testUpcomingWithoutLimitRoomReturnsNothing(): void
+    {
+        self::assertSame([], $this->selector->upcoming($this->situationAt('09:00', DepartureFixture::morningBoard()), 0));
+    }
+
+    public function testSelectIsTheFirstOfTheUpcomingTrains(): void
+    {
+        $situation = $this->situationAt('09:00', DepartureFixture::morningBoard());
+
+        $selected = $this->selector->select($situation);
+
+        self::assertNotNull($selected);
+        self::assertSame($this->tripIds($this->selector->upcoming($situation, 1)), [$selected->tripId]);
+    }
+
+    /**
+     * @param list<TrackedTrain> $trains
+     *
+     * @return list<string>
+     */
+    private function tripIds(array $trains): array
+    {
+        return array_map(static fn (TrackedTrain $train): string => $train->tripId, $trains);
     }
 
     /**

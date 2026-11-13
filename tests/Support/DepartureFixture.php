@@ -36,6 +36,20 @@ final class DepartureFixture
     }
 
     /**
+     * The morning board plus t5 S25 10:21 and t6 S26 10:31, so that more than three trains follow the earliest departure.
+     *
+     * @return list<Departure>
+     */
+    public static function longBoard(Departure ...$replacements): array
+    {
+        return [
+            ...self::morningBoard(...$replacements),
+            self::departure('t5', 'S25', '10:21', '10:21'),
+            self::departure('t6', 'S26', '10:31', '10:31'),
+        ];
+    }
+
+    /**
      * Four on-time trains: t1 S25 09:41, t2 S26 09:51, t3 S25 10:01, t4 S26 10:11.
      *
      * Departures passed in replace the on-time train with the same trip id.

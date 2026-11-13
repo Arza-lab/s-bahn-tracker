@@ -38,9 +38,9 @@ final readonly class WalkingPhaseHandler implements PhaseHandlerInterface
         $departure = $situation->findByTripId($train->tripId);
 
         if (true === $departure?->cancelled) {
-            $alternative = $situation->nextRunningDepartureAfter($train->departureAt);
+            $alternatives = $situation->runningDeparturesAfter($train->departureAt, $this->settings->connectionsShown());
 
-            return new Decision($state->done(), [$this->notifications->trainCancelled($train, $alternative)]);
+            return new Decision($state->done(), [$this->notifications->trainCancelled($train, $alternatives)]);
         }
 
         if (null !== $departure) {

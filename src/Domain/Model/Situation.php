@@ -35,15 +35,18 @@ final readonly class Situation
         return null;
     }
 
-    /** The first train that actually runs and leaves later than the given time. */
-    public function nextRunningDepartureAfter(\DateTimeImmutable $time): ?Departure
+    /**
+     * The first trains that actually run and leave later than the given time.
+     *
+     * @return list<Departure>
+     */
+    public function runningDeparturesAfter(\DateTimeImmutable $time, int $limit): array
     {
-        foreach ($this->departures as $departure) {
-            if (!$departure->cancelled && $departure->time() > $time) {
-                return $departure;
-            }
-        }
+        $running = array_filter(
+            $this->departures,
+            static fn (Departure $departure): bool => !$departure->cancelled && $departure->time() > $time,
+        );
 
-        return null;
+        return \array_slice(array_values($running), 0, max(0, $limit));
     }
 }

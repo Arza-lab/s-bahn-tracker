@@ -25,6 +25,8 @@ final readonly class CommuteSettings
         private int $planLeadMinutes,
         #[Autowire(env: 'int:COMMUTE_CHANGE_THRESHOLD_MINUTES')]
         private int $changeThresholdMinutes,
+        #[Autowire(env: 'int:COMMUTE_CONNECTIONS_SHOWN')]
+        private int $connectionsShown,
     ) {
         $this->timezone = new \DateTimeZone($timezone);
     }
@@ -61,5 +63,11 @@ final readonly class CommuteSettings
     public function changeThresholdSeconds(): int
     {
         return $this->changeThresholdMinutes * 60;
+    }
+
+    /** How many upcoming connections a notification shows, at least one. */
+    public function connectionsShown(): int
+    {
+        return max(1, $this->connectionsShown);
     }
 }
